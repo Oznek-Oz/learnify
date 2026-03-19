@@ -1,0 +1,8 @@
+# Dans le terminal PostgreSQL (psql)
+psql -U postgres
+
+CREATE DATABASE learnify_db;
+CREATE USER ton_user_postgres WITH PASSWORD 'ton_mot_de_passe';
+GRANT ALL PRIVILEGES ON DATABASE learnify_db TO ton_user_postgres;
+\q
+
