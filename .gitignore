@@ -10,3 +10,5 @@ chromadb_data/
 media/
 logs/
 *.log
+.env
+.env
