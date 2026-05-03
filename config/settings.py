@@ -34,7 +34,7 @@ GEMINI_API_KEY = config('GEMINI_API_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool) # Récupère le mode debug à partir de la variable d'environnement (par défaut False)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1',]
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
 
 
 # ─── Applications installées ──────────────────────────────────
@@ -162,11 +162,7 @@ SIMPLE_JWT = {
 }
 
 # ─── CORS (autorise React à appeler l'API) ────────────
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',    # ← Vite
-    'http://127.0.0.1:5173',   # ← Vite
-    #'https://c847-154-72-153-3.ngrok-free.app', # ← tunnel pour Vite
-]
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://127.0.0.1:5173', cast=lambda v: [s.strip() for s in v.split(',')])
 # Important pour que Django accepte les requêtes via un proxy/tunnel
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -192,7 +188,7 @@ MEDIA_ROOT = BASE_DIR / 'media'  # les PDF/images uploadés ici
 
 
 # ─── Celery ───────────────────────────────────────────
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Redis comme boîte aux lettres
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')  # Redis comme boîte aux lettres
 CELERY_RESULT_BACKEND = 'django-db'             # Résultats stockés en PostgreSQL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
