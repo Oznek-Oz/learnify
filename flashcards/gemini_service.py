@@ -4,8 +4,34 @@ import google.generativeai as genai
 from django.conf import settings
 import json
 import logging
+import time
+import random
 
 logger = logging.getLogger(__name__)
+
+
+def generate_flashcards_from_chunks_safe(
+    chunks: list[str],
+    topic: str,
+    num_cards: int = 10,
+    max_retries: int = 3
+) -> list[dict]:
+    """
+    Génère des fiches avec retry et fallback en cas d'erreur Gemini.
+    """
+    for attempt in range(max_retries):
+        try:
+            return generate_flashcards_from_chunks(chunks, topic, num_cards)
+        except Exception as e:
+            logger.warning(f"Tentative {attempt + 1}/{max_retries} échouée: {e}")
+            if attempt < max_retries - 1:
+                # Backoff exponentiel avec jitter
+                delay = (2 ** attempt) + random.uniform(0, 1)
+                time.sleep(delay)
+            else:
+                # Fallback: générer des fiches basiques
+                logger.error(f"Échec définitif génération fiches pour {topic}")
+                return _generate_fallback_flashcards(topic, num_cards)
 
 
 def generate_flashcards_from_chunks(
@@ -70,3 +96,17 @@ Format exact :
     except Exception as e:
         logger.error(f"Erreur Gemini flashcards : {e}")
         raise
+
+
+def _generate_fallback_flashcards(topic: str, num_cards: int) -> list[dict]:
+    """
+    Génère des fiches de fallback quand Gemini échoue.
+    """
+    return [
+        {
+            "front": f"Concept {i+1} sur {topic}",
+            "back": f"Contenu pédagogique sur {topic}. Cette fiche a été générée automatiquement en raison d'un problème technique temporaire.",
+            "hint": f"Réessayez la génération plus tard"
+        }
+        for i in range(num_cards)
+    ]

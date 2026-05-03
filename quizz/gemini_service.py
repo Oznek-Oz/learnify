@@ -5,8 +5,35 @@ from django.conf import settings
 import json
 import re
 import logging
+import time
+import random
 
 logger = logging.getLogger(__name__)
+
+
+def generate_quiz_from_chunks_safe(
+    chunks: list[str],
+    topic: str,
+    difficulty: str,
+    num_questions: int = 5,
+    max_retries: int = 3
+) -> list[dict]:
+    """
+    Génère un quiz avec retry et fallback en cas d'erreur Gemini.
+    """
+    for attempt in range(max_retries):
+        try:
+            return generate_quiz_from_chunks(chunks, topic, difficulty, num_questions)
+        except Exception as e:
+            logger.warning(f"Tentative {attempt + 1}/{max_retries} échouée: {e}")
+            if attempt < max_retries - 1:
+                # Backoff exponentiel avec jitter
+                delay = (2 ** attempt) + random.uniform(0, 1)
+                time.sleep(delay)
+            else:
+                # Fallback: générer des questions basiques
+                logger.error(f"Échec définitif génération quiz pour {topic}")
+                return _generate_fallback_quiz(topic, difficulty, num_questions)
 
 
 def get_gemini_model():
@@ -134,3 +161,28 @@ Format exact :
     except Exception as e:
         logger.error(f"Erreur Gemini : {e}")
         raise
+
+
+def _generate_fallback_quiz(topic: str, difficulty: str, num_questions: int) -> list[dict]:
+    """
+    Génère des questions de fallback quand Gemini échoue.
+    """
+    difficulty_labels = {
+        'easy': 'facile',
+        'medium': 'moyen',
+        'hard': 'difficile'
+    }
+    level = difficulty_labels.get(difficulty, 'moyen')
+
+    return [
+        {
+            "question": f"Question {i+1} sur le thème '{topic}' (niveau {level})",
+            "option_a": "Réponse A - Option proposée",
+            "option_b": "Réponse B - Option proposée",
+            "option_c": "Réponse C - Option proposée",
+            "option_d": "Réponse D - Option proposée",
+            "correct_answer": "A",
+            "explanation": f"Cette question porte sur le thème {topic}. Réessayez la génération plus tard pour obtenir du contenu personnalisé."
+        }
+        for i in range(num_questions)
+    ]

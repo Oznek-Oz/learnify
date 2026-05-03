@@ -5,6 +5,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
+from config.app_config import FLASHCARDS_RESULTS
+from config.throttles import GenerationThrottle
+from config.pagination import LargePagination
 from courses.models import Course
 from courses.vector_store import search_similar_chunks
 from .models import FlashcardDeck, Flashcard
@@ -14,7 +17,7 @@ from .serializers import (
     GenerateFlashcardsSerializer,
     UpdateMasterySerializer
 )
-from .tasks import generate_flashcards_task   # ← nouveau
+from .tasks import generate_flashcards_task
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,6 +29,7 @@ class GenerateFlashcardsView(APIView):
     Crée le deck immédiatement et lance la génération en arrière-plan
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [GenerationThrottle]
 
     def post(self, request):
         serializer = GenerateFlashcardsSerializer(data=request.data)
@@ -47,23 +51,34 @@ class GenerateFlashcardsView(APIView):
             )
 
         # 3. Recherche sémantique RAG
-        chunks = search_similar_chunks(
-            course_id = course.id,
-            query     = data['topic'],
-            n_results = 8
-        )
+        topic = data.get('topic', '').strip()
+        if topic:
+            # Recherche par sujet spécifique
+            chunks = search_similar_chunks(
+                course_id = course.id,
+                query     = topic,
+                n_results = FLASHCARDS_RESULTS
+            )
+        else:
+            # Si pas de sujet, utiliser tout le contenu du cours
+            # On récupère tous les chunks du cours via ChromaDB
+            from courses.vector_store import get_chroma_client
+            collection = get_chroma_client().get_or_create_collection(f"course_{course.id}")
+            results = collection.get()
+            chunks = results.get('documents', [])[:FLASHCARDS_RESULTS] if results.get('documents') else []
 
         if not chunks:
             return Response(
-                {"error": "Aucun contenu trouvé pour ce sujet."},
+                {"error": "Aucun contenu trouvé dans ce cours."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         # 4. Crée le deck vide IMMÉDIATEMENT en base
+        deck_title = f"Fiches — {topic}" if topic else f"Fiches — {course.title}"
         deck = FlashcardDeck.objects.create(
             course = course,
-            title  = f"Fiches — {data['topic']}",
-            topic  = data['topic'],
+            title  = deck_title,
+            topic  = topic or '',  # Vide si pas de sujet
             status = FlashcardDeck.Status.PENDING   # ← statut initial
         )
 
@@ -71,7 +86,7 @@ class GenerateFlashcardsView(APIView):
         generate_flashcards_task.delay(
             deck_id   = deck.id,
             chunks    = chunks,
-            topic     = data['topic'],
+            topic     = data.get('topic', ''),
             num_cards = data['num_cards']
         )
 
@@ -89,6 +104,7 @@ class DeckListView(generics.ListAPIView):
     """
     serializer_class   = FlashcardDeckSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class   = LargePagination
 
     def get_queryset(self):
         return FlashcardDeck.objects.filter(
@@ -96,9 +112,10 @@ class DeckListView(generics.ListAPIView):
         ).prefetch_related('flashcards')
 
 
-class DeckDetailView(generics.RetrieveDestroyAPIView):
+class DeckDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/flashcards/<id>/   → détail d'un deck (utilisé pour le polling)
+    PATCH  /api/flashcards/<id>/   → mise à jour partielle du statut ou des métadonnées
     DELETE /api/flashcards/<id>/   → supprimer un deck
     """
     serializer_class   = FlashcardDeckSerializer

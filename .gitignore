@@ -1,0 +1,12 @@
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+db.sqlite3
+chromadb_data/
+media/
+logs/
+*.log

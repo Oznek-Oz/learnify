@@ -39,7 +39,38 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        validators=[validate_password],
+        style={'input_type': 'password'}
+    )
+    password2 = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'date_joined')
+        fields = (
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'date_joined', 'password', 'password2'
+        )
         read_only_fields = ('id', 'date_joined')
+
+    def validate(self, attrs):
+        if attrs.get('password') or attrs.get('password2'):
+            if attrs.get('password') != attrs.get('password2'):
+                raise serializers.ValidationError({
+                    'password': 'Les mots de passe ne correspondent pas.'
+                })
+        return attrs
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        validated_data.pop('password2', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance

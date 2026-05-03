@@ -5,11 +5,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
+from config.app_config import QUIZ_SEARCH_RESULTS
+from config.throttles import GenerationThrottle
+from config.pagination import LargePagination
 from courses.models import Course
 from courses.vector_store import search_similar_chunks
 from .models import Quiz, Question
 from .serializers import QuizSerializer, GenerateQuizSerializer
-from .tasks import generate_quiz_task   # ← nouveau
+from .tasks import generate_quiz_task
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,7 @@ class GenerateQuizView(APIView):
     Crée le quiz immédiatement et lance la génération en arrière-plan
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [GenerationThrottle]
 
     def post(self, request):
         serializer = GenerateQuizSerializer(data=request.data)
@@ -42,24 +46,35 @@ class GenerateQuizView(APIView):
             )
 
         # 3. Recherche sémantique RAG
-        chunks = search_similar_chunks(
-            course_id = course.id,
-            query     = data['topic'],
-            n_results = 6
-        )
+        topic = data.get('topic', '').strip()
+        if topic:
+            # Recherche par sujet spécifique
+            chunks = search_similar_chunks(
+                course_id = course.id,
+                query     = topic,
+                n_results = QUIZ_SEARCH_RESULTS
+            )
+        else:
+            # Si pas de sujet, utiliser tout le contenu du cours
+            # On récupère tous les chunks du cours via ChromaDB
+            from courses.vector_store import get_chroma_client
+            collection = get_chroma_client().get_or_create_collection(f"course_{course.id}")
+            results = collection.get()
+            chunks = results.get('documents', [])[:QUIZ_SEARCH_RESULTS] if results.get('documents') else []
 
         if not chunks:
             return Response(
-                {"error": "Aucun contenu trouvé pour ce sujet."},
+                {"error": "Aucun contenu trouvé dans ce cours."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         # 4. Crée le quiz vide IMMÉDIATEMENT en base
+        quiz_title = f"Quiz — {topic}" if topic else f"Quiz — {course.title}"
         quiz = Quiz.objects.create(
             course     = course,
-            title      = f"Quiz — {data['topic']}",
+            title      = quiz_title,
             difficulty = data['difficulty'],
-            topic      = data['topic'],
+            topic      = topic or '',  # Vide si pas de sujet
             status     = Quiz.Status.PENDING   # ← statut initial
         )
 
@@ -67,7 +82,7 @@ class GenerateQuizView(APIView):
         generate_quiz_task.delay(
             quiz_id       = quiz.id,
             chunks        = chunks,
-            topic         = data['topic'],
+            topic         = data.get('topic', ''),
             difficulty    = data['difficulty'],
             num_questions = data['num_questions']
         )
@@ -86,6 +101,7 @@ class QuizListView(generics.ListAPIView):
     """
     serializer_class   = QuizSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class   = LargePagination
 
     def get_queryset(self):
         return Quiz.objects.filter(
@@ -93,9 +109,10 @@ class QuizListView(generics.ListAPIView):
         ).prefetch_related('questions')
 
 
-class QuizDetailView(generics.RetrieveDestroyAPIView):
+class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/quiz/<id>/   → détail d'un quiz (utilisé pour le polling)
+    PATCH  /api/quiz/<id>/   → mise à jour partielle du statut ou des métadonnées
     DELETE /api/quiz/<id>/   → supprimer un quiz
     """
     serializer_class   = QuizSerializer

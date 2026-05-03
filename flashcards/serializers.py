@@ -1,6 +1,7 @@
 # flashcards/serializers.py
 
 from rest_framework import serializers
+from config.app_config import FLASHCARDS_DEFAULT_CARDS, FLASHCARDS_MAX_CARDS, FLASHCARDS_MIN_CARDS
 from .models import FlashcardDeck, Flashcard
 
 
@@ -33,12 +34,12 @@ class FlashcardDeckSerializer(serializers.ModelSerializer):
 
 class GenerateFlashcardsSerializer(serializers.Serializer):
     """Validation des inputs pour la génération."""
-    course_id  = serializers.IntegerField()
-    topic      = serializers.CharField(max_length=255)
-    num_cards  = serializers.IntegerField(
-        min_value=3,
-        max_value=300,
-        default=10
+    course_id = serializers.IntegerField()
+    topic = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    num_cards = serializers.IntegerField(
+        min_value=FLASHCARDS_MIN_CARDS,
+        max_value=FLASHCARDS_MAX_CARDS,
+        default=FLASHCARDS_DEFAULT_CARDS
     )
 
 

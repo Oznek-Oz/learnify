@@ -10,10 +10,11 @@ class FlashcardDeck(models.Model):
     Ex: "Fiches Thermodynamique — Cours de Physique"
     """
     class Status(models.TextChoices):
-        PENDING    = 'pending',    'En attente'
-        GENERATING = 'generating', 'Génération en cours'
-        READY      = 'ready',      'Prêt'
-        FAILED     = 'failed',     'Échec'
+        PENDING     = 'pending',     'En attente'
+        GENERATING  = 'generating',  'Génération en cours'
+        IN_PROGRESS = 'in_progress', 'En cours'
+        READY       = 'ready',       'Prêt'
+        FAILED      = 'failed',      'Échec'
 
     course     = models.ForeignKey(
         Course,
@@ -31,6 +32,10 @@ class FlashcardDeck(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['course', 'status']),  # Requêtes par cours + status
+            models.Index(fields=['course', '-created_at']),  # Listes récentes par cours
+        ]
 
     def __str__(self):
         return f"{self.title} — {self.course.title}"

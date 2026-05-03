@@ -3,7 +3,9 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import UserRateThrottle
 
+from config.throttles import CourseUploadThrottle
 from courses.tasks import process_course
 from .models import Course
 from .serializers import CourseSerializer
@@ -16,6 +18,14 @@ class CourseListCreateView(generics.ListCreateAPIView):
     """
     serializer_class   = CourseSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes  = [CourseUploadThrottle]
+
+    def get_throttles(self):
+        # Applique le throttle d'upload strict seulement au POST
+        # GET utilise le throttle par défaut (user: 1000/day)
+        if self.request.method == 'POST':
+            return [CourseUploadThrottle()]
+        return [UserRateThrottle()]
 
     def get_queryset(self):
         # Chaque user ne voit QUE ses propres cours

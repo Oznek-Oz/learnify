@@ -19,7 +19,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+    
 urlpatterns = [
+    path('sentry-debug/', trigger_error),
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')), # On inclut les URLs de l'application users pour gérer les endpoints liés à l'authentification et aux profils des utilisateurs (ex: inscription, login, profil, etc.)
     path('api/courses/', include('courses.urls')),

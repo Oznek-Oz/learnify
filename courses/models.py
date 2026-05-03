@@ -40,6 +40,11 @@ class Course(models.Model):
 
     class Meta:
         ordering = ['-created_at']   # les plus récents en premier
+        indexes = [
+            models.Index(fields=['owner', 'status']),  # Requêtes par user + status
+            models.Index(fields=['owner', '-created_at']),  # Listes récentes par user
+            models.Index(fields=['status']),  # Filtrage par status
+        ]
 
     def __str__(self):
         return f"{self.title} ({self.owner.email})"
@@ -62,6 +67,9 @@ class CourseChunk(models.Model):
 
     class Meta:
         ordering = ['chunk_index']
+        indexes = [
+            models.Index(fields=['course', 'chunk_index']),  # Recherche par cours + position
+        ]
 
     def __str__(self):
         return f"Chunk {self.chunk_index} — {self.course.title}"

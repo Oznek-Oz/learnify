@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+from .app_config import COURSE_UPLOAD_RATE, GENERATION_RATE
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,7 +34,7 @@ GEMINI_API_KEY = config('GEMINI_API_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool) # Récupère le mode debug à partir de la variable d'environnement (par défaut False)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1',]
 
 
 # ─── Applications installées ──────────────────────────────────
@@ -47,10 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-     # Packages tiers
+    # Packages tiers
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    #'django_celery_results',
+    'django_extensions',
 
     # Nos applications
     'users',
@@ -135,10 +138,19 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ), # Spécifie que l'authentification par défaut pour les vues DRF utilise JWT (JSON Web Tokens) via la classe JWTAuthentication fournie par le package djangorestframework-simplejwt
+    ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
-    ), # Spécifie que les permissions par défaut pour les vues DRF exigent que l'utilisateur soit authentifié (IsAuthenticated) pour accéder aux ressources protégées de l'API
+    ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '1000/day',
+        'course_upload': COURSE_UPLOAD_RATE,
+        'generation': GENERATION_RATE,
+    },
+    'DEFAULT_PAGINATION_CLASS': 'config.pagination.StandardPagination',
 }
 
 SIMPLE_JWT = {
@@ -153,7 +165,10 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',    # ← Vite
     'http://127.0.0.1:5173',   # ← Vite
+    #'https://c847-154-72-153-3.ngrok-free.app', # ← tunnel pour Vite
 ]
+# Important pour que Django accepte les requêtes via un proxy/tunnel
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -199,5 +214,108 @@ CELERY_TASK_QUEUES = (
 CELERY_TASK_DEFAULT_QUEUE = 'generation'
 
 # ─── Concurrence ──────────────────────────────────────
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # chaque worker prend 1 tâche à la fois
+CELERY_WORKER_PREFETCH_MULTIPLIER = 5  # chaque worker prend 5 tâche à la fois
 CELERY_TASK_ACKS_LATE             = True  # confirme la tâche après exécution
+
+# ─── Logging structuré ────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'verbose',
+        },
+        'celery_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'celery.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console', 'celery_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'courses': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'flashcards': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'quizz': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# ─── Cache Redis ──────────────────────────────────────
+# Pour développement local : utilise cache en mémoire par défaut
+# Pour production avec Redis : configure CACHE_REDIS_ENABLED=true
+USE_REDIS_CACHE = config('CACHE_REDIS_ENABLED', default=False, cast=bool)
+
+if USE_REDIS_CACHE:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        }
+    }
+else:
+    # Cache en mémoire pour développement local
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
+    }
+
+# ─── Sentry (monitoring erreurs) ──────────────────────
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+
+sentry_sdk.init(
+    dsn=config('SENTRY_DSN', default=None),
+    integrations=[
+        DjangoIntegration(),
+        CeleryIntegration(),
+    ],
+    traces_sample_rate=0.1,  # 10% des requêtes tracées
+    send_default_pii=False,  # Pas de données personnelles
+    environment=config('ENVIRONMENT', default='development'),
+)
