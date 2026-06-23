@@ -1,0 +1,7 @@
+-r base.txt
+# Web / HTTP server dependencies
+# Include webserver and static files helpers
+gunicorn==26.0.0
+uvicorn==0.42.0
+whitenoise==6.12.0
+httpx==0.28.1
