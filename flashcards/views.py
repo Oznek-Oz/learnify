@@ -60,12 +60,10 @@ class GenerateFlashcardsView(APIView):
                 n_results = FLASHCARDS_RESULTS
             )
         else:
-            # Si pas de sujet, utiliser tout le contenu du cours
-            # On récupère tous les chunks du cours via ChromaDB
-            from courses.vector_store import get_chroma_client
-            collection = get_chroma_client().get_or_create_collection(f"course_{course.id}")
-            results = collection.get()
-            chunks = results.get('documents', [])[:FLASHCARDS_RESULTS] if results.get('documents') else []
+            # Si pas de sujet, récupérer les chunks depuis la base (pgvector)
+            from courses.models import CourseChunk
+            chunks_qs = CourseChunk.objects.filter(course=course).order_by('chunk_index')[:FLASHCARDS_RESULTS]
+            chunks = [c.content for c in chunks_qs]
 
         if not chunks:
             return Response(

@@ -22,6 +22,12 @@ QUIZ_MAX_QUESTIONS = config('QUIZ_MAX_QUESTIONS', default=200, cast=int)
 QUIZ_DEFAULT_QUESTIONS = config('QUIZ_DEFAULT_QUESTIONS', default=5, cast=int)
 QUIZ_SEARCH_RESULTS = config('QUIZ_SEARCH_RESULTS', default=6, cast=int)
 
+# ─── Quiz Game ─────────────────────────────────────────────
+QUIZ_GAME_LEVELS = config('QUIZ_GAME_LEVELS', default=10, cast=int)
+QUIZ_GAME_MIN_QUIZZES = config('QUIZ_GAME_MIN_QUIZZES', default=5, cast=int)
+QUIZ_GAME_MAX_QUIZZES = config('QUIZ_GAME_MAX_QUIZZES', default=20, cast=int)
+QUIZ_GAME_MAX_UNLOCKED_LEVELS = config('QUIZ_GAME_MAX_UNLOCKED_LEVELS', default=5, cast=int)
+
 # ─── Throttle DRF ──────────────────────────────────────────
 COURSE_UPLOAD_RATE = config('COURSE_UPLOAD_RATE', default='5/hour')
 GENERATION_RATE = config('GENERATION_RATE', default='10/day')

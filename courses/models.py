@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.conf import settings
+from pgvector.django import VectorField
 
 # fonction pour définir le chemin de stockage des fichiers uploadés par les utilisateurs (PDF, images) en les organisant par utilisateur
 def course_upload_path(instance, filename):
@@ -63,6 +64,7 @@ class CourseChunk(models.Model):
     content    = models.TextField()          # le texte du chunk
     page_number = models.IntegerField(default=0)  # page d'origine
     chunk_index = models.IntegerField()      # position dans le cours
+    embedding = VectorField(dimensions=384, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

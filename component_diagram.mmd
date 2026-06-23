@@ -1,0 +1,57 @@
+flowchart TB
+    subgraph "Frontend"
+        React[React/Vite<br/>SPA]
+        Axios[Axios<br/>HTTP Client]
+        Zustand[Zustand<br/>State Management]
+        Router[React Router<br/>Navigation]
+    end
+
+    subgraph "Backend API"
+        Django[Django REST Framework]
+        Auth[JWT Authentication]
+        Views[API Views<br/>Courses/Quiz/Flashcards]
+        Serializers[Model Serializers]
+    end
+
+    subgraph "Services Asynchrones"
+        Celery[Celery Workers]
+        CoursesQueue[Queue: courses<br/>OCR + Embeddings]
+        GenerationQueue[Queue: generation<br/>Quiz/Flashcards]
+    end
+
+    subgraph "Stockage"
+        Postgres[(PostgreSQL<br/>Données métier)]
+        Chroma[(ChromaDB<br/>Embeddings)]
+        Redis[(Redis<br/>Cache + Broker)]
+        Media[(Media Files<br/>PDF/Images)]
+    end
+
+    subgraph "Services Externes"
+        Gemini[Gemini API<br/>Génération IA]
+        Tesseract[Tesseract OCR<br/>Extraction texte]
+        Transformers[SentenceTransformers<br/>Embeddings]
+    end
+
+    React --> Axios
+    Axios --> Django
+    Django --> Auth
+    Django --> Views
+    Views --> Serializers
+    Serializers --> Postgres
+
+    Django --> Celery
+    Celery --> CoursesQueue
+    Celery --> GenerationQueue
+
+    CoursesQueue --> Tesseract
+    CoursesQueue --> Transformers
+    CoursesQueue --> Chroma
+
+    GenerationQueue --> Gemini
+    GenerationQueue --> Chroma
+
+    Views --> Redis
+    Views --> Media
+
+    React --> Router
+    React --> Zustand

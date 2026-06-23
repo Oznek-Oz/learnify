@@ -1,106 +1,86 @@
-# courses/vector_store.py ← remplace le début du fichier
+"""Postgres / pgvector based vector store for course chunks.
 
-import chromadb
+This file replaces the previous ChromaDB-backed implementation. It stores
+embeddings in the `CourseChunk.embedding` VectorField and performs nearest
+neighbour search using the `<->` operator provided by pgvector.
+
+Notes:
+- Requires Postgres extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+- Requires `django-pgvector` and `pgvector` Python packages.
+"""
+
 from django.conf import settings
 from django.core.cache import cache
-import os
+from django.db import connection
+from .models import CourseChunk
 import hashlib
-import numpy as np
 
-# ─── Lazy loading ─────────────────────────────────────
 _embedding_model = None
-_chroma_client   = None
 
-# ─── Lazy loading ─────────────────────────────────────
-_embedding_model = None
-_chroma_client   = None
 
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         import os
         from sentence_transformers import SentenceTransformer
-        os.environ['TRANSFORMERS_OFFLINE'] = '1'  # ← cache local uniquement
-        _embedding_model = SentenceTransformer(
-            'paraphrase-multilingual-MiniLM-L12-v2'
-        )
+        os.environ['TRANSFORMERS_OFFLINE'] = '1'
+        _embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     return _embedding_model
-
-def get_chroma_client():
-    global _chroma_client
-    if _chroma_client is None:
-        _chroma_client = chromadb.PersistentClient(
-            path=os.path.join(settings.BASE_DIR, 'chromadb_data')
-        )
-    return _chroma_client
-
-
-def get_or_create_collection(course_id: int):
-    return get_chroma_client().get_or_create_collection(
-        name=f"course_{course_id}",
-        metadata={"hnsw:space": "cosine"}
-    )
 
 
 def store_chunks_embeddings(course_id: int, chunks: list[dict]):
-    """Stocke les chunks et leurs embeddings dans ChromaDB"""
-    # Guard : vérifier qu'on a des chunks
+    """Compute embeddings for provided chunks and save them on CourseChunk.embedding.
+
+    `chunks` is expected to be a list of dicts with keys: `content`, `chunk_index`, `page`.
+    The CourseChunk rows were created earlier in the pipeline and are updated here.
+    """
     if not chunks:
         raise ValueError(f"Impossible de stocker 0 embeddings pour le cours {course_id}")
-    
-    collection = get_or_create_collection(course_id)
 
-    texts      = [chunk["content"]          for chunk in chunks]
-    ids        = [str(chunk["chunk_index"]) for chunk in chunks]
-    metadatas  = [{"page": chunk["page"]}   for chunk in chunks]
-
-    # Encode embeddings
+    texts = [c['content'] for c in chunks]
     embeddings = get_embedding_model().encode(texts)
 
-    # Quantize to int8 (4x space reduction, minimal quality loss)
-    embeddings_int8 = (embeddings * 127).astype(np.int8)
-    embeddings_list = embeddings_int8.tolist()
+    # Save embeddings to DB: match by course_id + chunk_index
+    for chunk, emb in zip(chunks, embeddings):
+        CourseChunk.objects.filter(course_id=course_id, chunk_index=chunk['chunk_index']).update(embedding=emb.tolist())
 
-    collection.add(
-        ids        = ids,
-        documents  = texts,
-        embeddings = embeddings,
-        metadatas  = metadatas
-    )
     return len(chunks)
 
 
 def search_similar_chunks(course_id: int, query: str, n_results=5) -> list[str]:
-    # Cache key basé sur course_id, query et n_results
+    """Return list of chunk contents most similar to `query`.
+
+    Results are cached for 1 hour.
+    """
     cache_key = f"search:{course_id}:{hashlib.md5(f'{query}:{n_results}'.encode()).hexdigest()}"
-    cache_timeout = 3600  # 1 heure
+    cache_timeout = 3600
 
-    # Vérifie le cache
-    cached_result = cache.get(cache_key)
-    if cached_result is not None:
-        return cached_result
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
-    # Si pas en cache, fait la recherche
-    collection  = get_or_create_collection(course_id)
-    query_embed = get_embedding_model().encode([query])
+    # Compute query embedding
+    q_emb = get_embedding_model().encode([query])[0].tolist()
 
-    # Quantize query embedding to match stored format
-    query_embed_int8 = (query_embed * 127).astype(np.int8)
-    query_embed_list = query_embed_int8.tolist()
+    # Use raw SQL to take advantage of pgvector operator
+    sql = """
+    SELECT content
+    FROM courses_coursechunk
+    WHERE course_id = %s AND embedding IS NOT NULL
+    ORDER BY embedding <-> %s
+    LIMIT %s
+    """
 
-    results = collection.query(
-        query_embeddings = query_embed_list,
-        n_results        = n_results
-    )
-    documents = results["documents"][0] if results["documents"] else []
+    with connection.cursor() as cur:
+        cur.execute(sql, [course_id, q_emb, n_results])
+        rows = cur.fetchall()
 
-    # Met en cache le résultat
+    documents = [r[0] for r in rows]
     cache.set(cache_key, documents, timeout=cache_timeout)
     return documents
 
 
 def delete_course_collection(course_id: int):
-    try:
-        get_chroma_client().delete_collection(f"course_{course_id}")
-    except Exception:
-        pass
+    """No-op for pgvector (data stored inline in CourseChunk rows)."""
+    # Keep API compatibility with previous implementation
+    return

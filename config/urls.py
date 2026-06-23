@@ -28,5 +28,6 @@ urlpatterns = [
     path('api/auth/', include('users.urls')), # On inclut les URLs de l'application users pour gérer les endpoints liés à l'authentification et aux profils des utilisateurs (ex: inscription, login, profil, etc.)
     path('api/courses/', include('courses.urls')),
     path('api/quiz/',    include('quizz.urls')),
-    path('api/flashcards/', include('flashcards.urls'))
+    path('api/flashcards/', include('flashcards.urls')),
+    path('api/quiz-game/', include('quiz_game.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) # Permet de servir les fichiers médias (PDF, images) pendant le développement en utilisant les paramètres MEDIA_URL et MEDIA_ROOT définis dans settings.py

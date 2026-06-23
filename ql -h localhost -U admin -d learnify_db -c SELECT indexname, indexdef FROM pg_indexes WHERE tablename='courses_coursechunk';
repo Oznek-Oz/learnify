@@ -1,0 +1,8 @@
+               indexname                |                                                                  indexdef                                                                   
+----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------
+ courses_coursechunk_pkey               | CREATE UNIQUE INDEX courses_coursechunk_pkey ON public.courses_coursechunk USING btree (id)
+ courses_coursechunk_course_id_9f67fd3d | CREATE INDEX courses_coursechunk_course_id_9f67fd3d ON public.courses_coursechunk USING btree (course_id)
+ courses_cou_course__97491b_idx         | CREATE INDEX courses_cou_course__97491b_idx ON public.courses_coursechunk USING btree (course_id, chunk_index)
+ coursechunk_embedding_ivfflat_idx      | CREATE INDEX coursechunk_embedding_ivfflat_idx ON public.courses_coursechunk USING ivfflat (embedding vector_cosine_ops) WITH (lists='100')
+(4 rows)
+

@@ -1,0 +1,45 @@
+flowchart TD
+    subgraph "Étudiant"
+        Student[Étudiant]
+    end
+
+    subgraph "Fonctionnalités Principales"
+        Upload[Uploader un cours]
+        Process[Traitement automatique]
+        GenerateQuiz[Générer un quiz]
+        GenerateFlashcards[Générer des flashcards]
+        Study[Étudier avec flashcards]
+        TakeQuiz[Passer un quiz]
+        Review[Consulter les résultats]
+    end
+
+    subgraph "Système"
+        OCR[OCR + Chunking]
+        Embeddings[Calcul des embeddings]
+        VectorStore[Stockage vectoriel]
+        GeminiAI[IA Gemini]
+        Database[Base de données]
+    end
+
+    Student --> Upload
+    Upload --> Process
+    Process --> OCR
+    OCR --> Embeddings
+    Embeddings --> VectorStore
+
+    Student --> GenerateQuiz
+    GenerateQuiz --> GeminiAI
+    GeminiAI --> Database
+
+    Student --> GenerateFlashcards
+    GenerateFlashcards --> GeminiAI
+    GeminiAI --> Database
+
+    Student --> Study
+    Study --> Database
+
+    Student --> TakeQuiz
+    TakeQuiz --> Database
+
+    Student --> Review
+    Review --> Database

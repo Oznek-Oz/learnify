@@ -359,7 +359,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'celery': {
-            'class': 'logging.FileHandler',
+            'class': 'logging.StreamHandler',
             'filename': BASE_DIR / 'logs' / 'celery.log',
         },
     },

@@ -60,6 +60,10 @@ INSTALLED_APPS = [
     'courses',
     'quizz',
     'flashcards',
+    'quiz_game',
+
+    # Postgres vector extension
+    'pgvector',
 
     'rest_framework_simplejwt.token_blacklist',
 ]
@@ -67,6 +71,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', # Permet de gérer les requêtes CORS (Cross-Origin Resource Sharing) pour autoriser les requêtes provenant de domaines différents
     'django.middleware.security.SecurityMiddleware', # Fournit plusieurs fonctionnalités de sécurité pour protéger l'application contre les attaques courantes (ex: clickjacking, XSS, etc.)
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Permet de servir les fichiers statiques directement depuis Django en production, sans avoir besoin d'un serveur web séparé (ex: Nginx)
     'django.contrib.sessions.middleware.SessionMiddleware', # Gère les sessions utilisateur en stockant les données de session dans des cookies ou dans la base de données
     'django.middleware.common.CommonMiddleware', # Fournit plusieurs fonctionnalités de base pour gérer les requêtes HTTP (ex: redirections, gestion des en-têtes, etc.)
     'django.middleware.csrf.CsrfViewMiddleware', # Protège contre les attaques CSRF (Cross-Site Request Forgery) en vérifiant que les requêtes POST proviennent du même domaine
@@ -74,6 +79,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware', # Permet d'afficher des messages de feedback à l'utilisateur (ex: messages.success, messages.error, etc.)
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # Protège contre les attaques de clickjacking en empêchant l'affichage de l'application dans des iframes provenant de domaines différents
 ]
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 ROOT_URLCONF = 'config.urls' # Spécifie le module de configuration des URLs racines du projet (config/urls.py)
 
@@ -107,7 +114,11 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
-    }
+        "OPTIONS": {
+            "sslmode": "require",
+        },
+    },
+    
 }
 
 # ─── Modèle utilisateur personnalisé ─────────────────
@@ -230,13 +241,13 @@ LOGGING = {
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
+            'class': 'logging.StreamHandler',
             'filename': BASE_DIR / 'logs' / 'django.log',
             'formatter': 'verbose',
         },
         'celery_file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
+            'class': 'logging.StreamHandler',
             'filename': BASE_DIR / 'logs' / 'celery.log',
             'formatter': 'verbose',
         },

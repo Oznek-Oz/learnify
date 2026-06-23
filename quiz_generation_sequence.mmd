@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant U as Utilisateur
+    participant API as API Django
+    participant DB as PostgreSQL
+    participant RQ as Redis Queue
+    participant W as Worker Celery
+    participant AI as Gemini API
+    participant VS as ChromaDB
+
+    U->>API: POST /api/quizzes/
+    API->>DB: Créer Quiz (status=PENDING)
+    API->>RQ: Enqueue generate_quiz_task
+    API->>U: Quiz créé (ID)
+
+    RQ->>W: Consommer tâche
+    W->>DB: Mettre à jour status=GENERATING
+    W->>VS: Rechercher chunks similaires
+    VS-->>W: Retourner chunks pertinents
+    W->>AI: Générer quiz avec contexte
+    AI-->>W: Questions générées (JSON)
+    W->>DB: Sauvegarder questions
+    W->>DB: Mettre à jour status=READY
+
+    U->>API: GET /api/quizzes/{id}/
+    API->>DB: Récupérer quiz + questions
+    API->>U: Données du quiz

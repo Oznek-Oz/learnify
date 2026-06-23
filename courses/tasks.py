@@ -67,7 +67,7 @@ def process_course(self, course_id: int):
         ])
 
         store_chunks_embeddings(course_id, chunks)
-        logger.info(f"Cours {course_id} : embeddings stockés dans ChromaDB")
+        logger.info(f"Cours {course_id} : embeddings stockés dans la base (pgvector)")
 
         course.status = Course.Status.READY
         course.save(update_fields=['status'])

@@ -1,0 +1,40 @@
+flowchart TB
+    subgraph Client
+        React[React/Vite Frontend]
+    end
+
+    subgraph API
+        Django[Backend Django REST]
+        Auth[JWT Auth]
+        Courses[Courses API]
+        Quiz[Quiz API]
+        Flashcards[Flashcards API]
+    end
+
+    subgraph Storage
+        Postgres[PostgreSQL]
+        Media[Media Files]
+        Chroma[ChromaDB]
+        Redis[Redis Broker/Cache]
+    end
+
+    subgraph AI
+        Gemini[Gemini API]
+    end
+
+    React -->|HTTP JSON| Django
+    Django -->|ORM| Postgres
+    Django -->|Fichiers| Media
+    Django -->|Embeddings| Chroma
+    Django -->|Broker| Redis
+    Django -.->|GenAI| Gemini
+
+    subgraph Celery
+        CoursesQueue[Queue: courses]
+        GenerationQueue[Queue: generation]
+    end
+
+    Django -->|enqueue| CoursesQueue
+    Django -->|enqueue| GenerationQueue
+    CoursesQueue -->|OCR + embeddings| Chroma
+    GenerationQueue -->|Quiz/Flashcards| Gemini

@@ -1,0 +1,86 @@
+classDiagram
+    class CustomUser {
+        +email: EmailField
+        +username: CharField
+        +first_name: CharField
+        +last_name: CharField
+        +is_active: BooleanField
+        +date_joined: DateTimeField
+        +courses: ForeignKey[]
+        +__str__(): str
+    }
+
+    class Course {
+        +owner: ForeignKey(CustomUser)
+        +title: CharField
+        +description: TextField
+        +file: FileField
+        +file_type: CharField
+        +status: CharField
+        +created_at: DateTimeField
+        +updated_at: DateTimeField
+        +chunks: ForeignKey[]
+        +quizzes: ForeignKey[]
+        +decks: ForeignKey[]
+        +__str__(): str
+    }
+
+    class CourseChunk {
+        +course: ForeignKey(Course)
+        +content: TextField
+        +page_number: IntegerField
+        +chunk_index: IntegerField
+        +created_at: DateTimeField
+        +__str__(): str
+    }
+
+    class Quiz {
+        +course: ForeignKey(Course)
+        +title: CharField
+        +difficulty: CharField
+        +topic: CharField
+        +status: CharField
+        +created_at: DateTimeField
+        +questions: ForeignKey[]
+        +__str__(): str
+    }
+
+    class Question {
+        +quiz: ForeignKey(Quiz)
+        +question_text: TextField
+        +option_a: CharField
+        +option_b: CharField
+        +option_c: CharField
+        +option_d: CharField
+        +correct_answer: CharField
+        +explanation: TextField
+        +order: IntegerField
+    }
+
+    class FlashcardDeck {
+        +course: ForeignKey(Course)
+        +title: CharField
+        +topic: CharField
+        +created_at: DateTimeField
+        +status: CharField
+        +flashcards: ForeignKey[]
+        +__str__(): str
+    }
+
+    class Flashcard {
+        +deck: ForeignKey(FlashcardDeck)
+        +front: TextField
+        +back: TextField
+        +hint: TextField
+        +mastery: CharField
+        +order: IntegerField
+        +created_at: DateTimeField
+        +__str__(): str
+    }
+
+    CustomUser o-- Course : owns
+    Course o-- CourseChunk : contains
+    Course o-- Quiz : has
+    Course o-- FlashcardDeck : has
+    Quiz o-- Question : contains
+    FlashcardDeck o-- Flashcard : contains

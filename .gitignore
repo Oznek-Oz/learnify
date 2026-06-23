@@ -7,6 +7,8 @@ __pycache__/
 .Python
 db.sqlite3
 chromadb_data/
+
+# pgvector: no need to ignore DB files here
 media/
 logs/
 *.log

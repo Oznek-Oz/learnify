@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> Pending: Demande créée
+
+    Pending --> Generating: Worker démarre
+    Generating --> Ready: Génération réussie
+    Ready --> [*]
+
+    Generating --> Failed: Erreur de génération
+    Failed --> [*]
+
+    note right of Generating
+        Recherche sémantique<br/>
+        dans ChromaDB
+    end note
+
+    note right of Ready
+        Quiz/Flashcards<br/>
+        sauvegardés en DB
+    end note
+
+    note right of Failed
+        Log de l'erreur<br/>
+        Status mis à jour
+    end note

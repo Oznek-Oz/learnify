@@ -1,0 +1,65 @@
+flowchart TD
+    subgraph "Client"
+        Browser[Navigateur Web<br/>React Application]
+    end
+
+    subgraph "Serveur Web"
+        Nginx[Nginx<br/>Reverse Proxy]
+        Gunicorn[Gunicorn<br/>WSGI Server]
+        Django[Django Application]
+    end
+
+    subgraph "Base de Données"
+        Postgres[(PostgreSQL<br/>Port: 5432)]
+    end
+
+    subgraph "Cache & Message Broker"
+        Redis[(Redis<br/>Port: 6379)]
+    end
+
+    subgraph "Vector Database"
+        ChromaDB[(ChromaDB<br/>Port: 8000)]
+    end
+
+    subgraph "File Storage"
+        Media[Media Files<br/>Local/NFS]
+    end
+
+    subgraph "Worker Nodes"
+        CeleryWorkers[Celery Workers<br/>Tâches asynchrones]
+    end
+
+    subgraph "External APIs"
+        GeminiAPI[Gemini API<br/>Google AI]
+    end
+
+    Browser --> Nginx
+    Nginx --> Gunicorn
+    Gunicorn --> Django
+
+    Django --> Postgres
+    Django --> Redis
+    Django --> ChromaDB
+    Django --> Media
+
+    CeleryWorkers --> Redis
+    CeleryWorkers --> Postgres
+    CeleryWorkers --> ChromaDB
+    CeleryWorkers --> GeminiAPI
+
+    note right of Nginx
+        Port 80/443<br/>
+        SSL Termination<br/>
+        Static Files
+    end note
+
+    note right of Gunicorn
+        Port 8000<br/>
+        Multiple Workers
+    end note
+
+    note right of CeleryWorkers
+        File Processing<br/>
+        AI Generation<br/>
+        Background Tasks
+    end note

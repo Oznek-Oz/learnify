@@ -1,0 +1,25 @@
+stateDiagram-v2
+    [*] --> Uploaded: Cours uploadé
+    Uploaded --> Processing: Démarrage traitement
+    Processing --> OCR: Extraction du texte
+    OCR --> Chunking: Découpage en chunks
+    Chunking --> Embedding: Calcul des embeddings
+    Embedding --> VectorStore: Stockage dans ChromaDB
+    VectorStore --> Ready: Cours prêt
+    Ready --> [*]
+
+    OCR --> Failed: Erreur OCR
+    Chunking --> Failed: Erreur chunking
+    Embedding --> Failed: Erreur embedding
+    VectorStore --> Failed: Erreur stockage
+    Failed --> [*]
+
+    note right of Processing
+        Tâche Celery asynchrone
+        Queue: courses
+    end note
+
+    note right of Embedding
+        Utilise SentenceTransformers
+        pour calculer les embeddings
+    end note

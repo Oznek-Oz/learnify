@@ -2,6 +2,7 @@
 # stop_dev.sh — Arrêter tous les services démarrés par run_dev.sh
 
 echo "🛑 Arrêt des services Learnify..."
+echo ""
 
 # Fonction pour arrêter un service
 stop_service() {
@@ -41,6 +42,7 @@ if pgrep -x "redis-server" > /dev/null; then
     pkill redis-server
 fi
 
+echo ""
 echo "✅ Tous les services arrêtés"
 echo "🧹 Nettoyage des fichiers PID..."
 rm -f *.pid

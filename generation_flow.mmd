@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant User as Utilisateur
+    participant Front as Frontend React
+    participant API as API Django
+    participant CEL as Celery
+    participant DB as PostgreSQL
+    participant Chroma as ChromaDB
+    participant Gemini as Gemini API
+
+    User->>Front: demande de génération
+    Front->>API: POST /api/quiz/generate/ ou /api/flashcards/generate/
+    API->>DB: crée Quiz/Deck en status pending
+    API->>CEL: generate_*_task.delay(...)
+    API-->>Front: 202 Accepted + objet pending
+    CEL->>DB: met à jour status generating
+    CEL->>Chroma: récupère chunks
+    CEL->>Gemini: génération des questions/fiches
+    Gemini-->>CEL: réponse texte/JSON
+    CEL->>DB: stocke questions/fiches
+    CEL->>DB: met à jour status READY
+    Front-->>API: GET /api/quiz/ ou /api/flashcards/ (polling)
