@@ -6,6 +6,8 @@ from .models import Course, CourseChunk
 from .services import extract_text_from_pdf, extract_text_from_image, chunk_text_adaptive
 from .vector_store import store_chunks_embeddings
 import logging
+import tempfile
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +34,30 @@ def process_course(self, course_id: int):
         course.save(update_fields=['status'])
         logger.info(f"Traitement du cours {course_id} démarré")
 
-        file_path = course.file.path
+        """file_path = course.file.path
         if course.file_type == 'pdf':
             pages = extract_text_from_pdf(file_path)
         else:
-            pages = extract_text_from_image(file_path)
+            pages = extract_text_from_image(file_path)"""
+
+
+
+        with course.file.open("rb") as f:
+            with tempfile.NamedTemporaryFile(
+                suffix=".pdf" if course.file_type == "pdf" else ".png",
+                delete=False
+            ) as tmp:
+                tmp.write(f.read())
+                tmp_path = tmp.name
+
+        try:
+            if course.file_type == "pdf":
+                pages = extract_text_from_pdf(tmp_path)
+            else:
+                pages = extract_text_from_image(tmp_path)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
         if not pages or not any(page.get('text', '').strip() for page in pages):
             logger.warning(f"Cours {course_id} : aucun texte extrait")
