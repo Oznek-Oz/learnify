@@ -28,7 +28,6 @@ _embedding_model = None
     return _embedding_model"""
 
 
-from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "intfloat/multilingual-e5-small"
 
@@ -39,6 +38,8 @@ def get_embedding_model():
 
     if _embedding_model is None:
         import torch
+        from sentence_transformers import SentenceTransformer
+
 
         torch.set_num_threads(1)
 
