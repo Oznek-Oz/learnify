@@ -4,7 +4,8 @@
 
 flower==2.0.1
 sentence-transformers==2.7.0
-torch==2.11.0+cpu
+torch
+torchvision
 transformers==4.38.2
 sentencepiece==0.2.1
 safetensors==0.7.0
