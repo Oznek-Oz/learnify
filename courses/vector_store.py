@@ -8,7 +8,7 @@ Notes:
 - Requires Postgres extension: `CREATE EXTENSION IF NOT EXISTS vector;`
 - Requires `django-pgvector` and `pgvector` Python packages.
 """
-
+# courses/vector_store.py
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
@@ -18,15 +18,33 @@ import hashlib
 _embedding_model = None
 
 
-def get_embedding_model():
+"""def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         import os
         from sentence_transformers import SentenceTransformer
         os.environ['TRANSFORMERS_OFFLINE'] = '1'
         _embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    return _embedding_model
+    return _embedding_model"""
 
+
+from sentence_transformers import SentenceTransformer
+
+MODEL_NAME = "intfloat/multilingual-e5-small"
+
+_embedding_model = None
+
+def get_embedding_model():
+    global _embedding_model
+
+    if _embedding_model is None:
+        import torch
+
+        torch.set_num_threads(1)
+
+        _embedding_model = SentenceTransformer(MODEL_NAME)
+
+    return _embedding_model
 
 def store_chunks_embeddings(course_id: int, chunks: list[dict]):
     """Compute embeddings for provided chunks and save them on CourseChunk.embedding.
@@ -60,7 +78,11 @@ def search_similar_chunks(course_id: int, query: str, n_results=5) -> list[str]:
         return cached
 
     # Compute query embedding
-    q_emb = get_embedding_model().encode([query])[0].tolist()
+    #q_emb = get_embedding_model().encode([query])[0].tolist()
+    q_emb = get_embedding_model().encode(
+        [f"query: {query}"],
+        convert_to_numpy=True,
+    )[0].tolist()
 
     # Use raw SQL to take advantage of pgvector operator
     sql = """
